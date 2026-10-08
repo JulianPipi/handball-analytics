@@ -27,6 +27,7 @@ interface HandballContextType {
   resetAllToDefault: () => void;
   exportBackup: () => void;
   importBackup: (jsonData: string) => boolean;
+  importPlayersBulk: (newPlayers: Player[], replace: boolean) => void;
 }
 
 const STORAGE_KEY_PLAYERS = 'hb_players_v1';
@@ -131,6 +132,25 @@ export const HandballProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const deletePlayer = (playerId: string) => {
     setPlayers((prev) => prev.filter((p) => p.id !== playerId));
+  };
+
+  const importPlayersBulk = (newPlayers: Player[], replace: boolean) => {
+    if (replace) {
+      setPlayers(newPlayers);
+    } else {
+      setPlayers((prev) => {
+        const updated = [...prev];
+        newPlayers.forEach((np) => {
+          const existingIdx = updated.findIndex((p) => p.number === np.number);
+          if (existingIdx >= 0) {
+            updated[existingIdx] = { ...np, id: updated[existingIdx].id };
+          } else {
+            updated.push(np);
+          }
+        });
+        return updated;
+      });
+    }
   };
 
   const updateTeam = (teamData: Partial<Team>) => {
@@ -401,6 +421,7 @@ export const HandballProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         resetAllToDefault,
         exportBackup,
         importBackup,
+        importPlayersBulk,
       }}
     >
       {children}

@@ -5,6 +5,7 @@ import { POSITION_LABELS } from '../../types/handball';
 import { PlayerModal } from './PlayerModal';
 import { TeamEditorModal } from './TeamEditorModal';
 import { PlayerAnalysisModal } from '../PlayerAnalysis/PlayerAnalysisModal';
+import { BulkImportModal } from './BulkImportModal';
 import {
   UserPlus,
   Settings,
@@ -13,6 +14,7 @@ import {
   Trash2,
   Edit2,
   Target,
+  FileSpreadsheet,
 } from 'lucide-react';
 
 export const RosterManager: React.FC = () => {
@@ -25,6 +27,7 @@ export const RosterManager: React.FC = () => {
   const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
   const [analyzingPlayer, setAnalyzingPlayer] = useState<Player | null>(null);
   const [isAnalysisModalOpen, setIsAnalysisModalOpen] = useState(false);
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
 
   // Statistics summaries
   const totalPlayers = players.length;
@@ -158,7 +161,15 @@ export const RosterManager: React.FC = () => {
           </div>
 
           {/* Action Buttons */}
-          <div className="flex items-center space-x-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={() => setIsBulkModalOpen(true)}
+              className="w-full sm:w-auto px-4 py-2.5 rounded-xl font-bold text-sm bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-500/30 hover:border-emerald-500/60 shadow-lg transition-all flex items-center justify-center space-x-2"
+              title="Importar lista de jugadores desde Excel, Google Sheets o CSV"
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              <span>Carga Masiva (Excel/CSV)</span>
+            </button>
             <button
               onClick={handleOpenAddModal}
               className="w-full sm:w-auto px-5 py-2.5 rounded-xl font-bold text-sm bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-lg shadow-blue-600/30 transition-all flex items-center justify-center space-x-2"
@@ -433,6 +444,11 @@ export const RosterManager: React.FC = () => {
         player={analyzingPlayer}
         allPlayers={players}
         onSelectPlayer={(p) => setAnalyzingPlayer(p)}
+      />
+
+      <BulkImportModal
+        isOpen={isBulkModalOpen}
+        onClose={() => setIsBulkModalOpen(false)}
       />
     </div>
   );
