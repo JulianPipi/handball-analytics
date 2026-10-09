@@ -168,6 +168,20 @@ export interface MatchEvent {
   description: string;
 }
 
+export interface TeamTimeout {
+  number: 1 | 2 | 3;
+  period: 1 | 2;
+  matchTimeSeconds: number;
+}
+
+export type MatchCategory = 'menores' | 'cadetes' | 'mayores';
+
+export const CATEGORY_DURATION_MAP: Record<MatchCategory, { label: string; minutes: number; description: string }> = {
+  menores: { label: 'Infantiles / Menores', minutes: 20, description: '2 tiempos de 20 minutos' },
+  cadetes: { label: 'Cadetes', minutes: 25, description: '2 tiempos de 25 minutos' },
+  mayores: { label: 'Juveniles / Juniors / Mayores', minutes: 30, description: '2 tiempos de 30 minutos' },
+};
+
 export interface Match {
   id: string;
   date: string;
@@ -180,6 +194,16 @@ export interface Match {
   currentPeriod: 1 | 2;
   matchTimeSeconds: number;
   periodDurationMinutes: number;
+  category: MatchCategory;
+  possession: 'home' | 'away';
+  homeTimeouts: TeamTimeout[];
+  awayTimeouts: TeamTimeout[];
+  activeTimeoutCountdown?: {
+    teamId: string;
+    teamName: string;
+    secondsLeft: number;
+    isActive: boolean;
+  } | null;
   isRunning: boolean;
   activeExclusions: ActiveExclusion[];
   onCourtPlayerIds: string[];

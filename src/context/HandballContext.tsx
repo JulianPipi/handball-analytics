@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import type { Player, Team, Match, MatchEvent, ActiveExclusion } from '../types/handball';
+import type { Player, Team, Match, MatchEvent, ActiveExclusion, MatchCategory, TeamTimeout } from '../types/handball';
+import { CATEGORY_DURATION_MAP } from '../types/handball';
 import { INITIAL_HOME_TEAM, INITIAL_PLAYERS, INITIAL_MATCH } from '../data/mockData';
 
 interface HandballContextType {
@@ -31,6 +32,11 @@ interface HandballContextType {
   substitutePlayer: (outPlayerId: string, inPlayerId: string) => void;
   setOnCourtPlayers: (playerIds: string[]) => void;
   updatePlayerNotes: (playerId: string, notes: string) => void;
+  setPossession: (possession: 'home' | 'away') => void;
+  togglePossession: () => void;
+  setMatchCategory: (category: MatchCategory) => void;
+  requestTimeout: (teamId: string) => boolean;
+  cancelTimeoutCountdown: () => void;
 }
 
 const STORAGE_KEY_PLAYERS = 'hb_players_v1';
@@ -70,6 +76,12 @@ export const HandballProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (!saved) return INITIAL_MATCH;
     try {
       const parsed: Match = JSON.parse(saved);
+      parsed.category = parsed.category || 'mayores';
+      parsed.periodDurationMinutes = parsed.periodDurationMinutes || 30;
+      parsed.possession = parsed.possession || 'home';
+      parsed.homeTimeouts = parsed.homeTimeouts || [];
+      parsed.awayTimeouts = parsed.awayTimeouts || [];
+      parsed.activeTimeoutCountdown = parsed.activeTimeoutCountdown || null;
       if (!parsed.onCourtPlayerIds || parsed.onCourtPlayerIds.length === 0) {
         parsed.onCourtPlayerIds = INITIAL_MATCH.onCourtPlayerIds || ['p-1', 'p-7', 'p-24', 'p-33', 'p-10', 'p-9', 'p-18'];
       }
@@ -147,6 +159,36 @@ export const HandballProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       if (interval) clearInterval(interval);
     };
   }, [match.isRunning, match.isFinished]);
+
+
+  // Active timeout countdown effect (60 seconds official IHF timeout)
+  useEffect(() => {
+    let tInterval: any = null;
+    if (match.activeTimeoutCountdown && match.activeTimeoutCountdown.isActive) {
+      tInterval = setInterval(() => {
+        setMatch((prev) => {
+          if (!prev.activeTimeoutCountdown || !prev.activeTimeoutCountdown.isActive) return prev;
+          const nextSeconds = prev.activeTimeoutCountdown.secondsLeft - 1;
+          if (nextSeconds <= 0) {
+            return {
+              ...prev,
+              activeTimeoutCountdown: null,
+            };
+          }
+          return {
+            ...prev,
+            activeTimeoutCountdown: {
+              ...prev.activeTimeoutCountdown,
+              secondsLeft: nextSeconds,
+            },
+          };
+        });
+      }, 1000);
+    }
+    return () => {
+      if (tInterval) clearInterval(tInterval);
+    };
+  }, [match.activeTimeoutCountdown?.isActive]);
 
   // Player operations
   const addPlayer = (playerData: Omit<Player, 'id' | 'stats'>) => {
@@ -441,6 +483,86 @@ export const HandballProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }));
   };
 
+
+  const setPossession = (possession: 'home' | 'away') => {
+    setMatch((prev) => ({ ...prev, possession }));
+  };
+
+  const togglePossession = () => {
+    setMatch((prev) => ({ ...prev, possession: prev.possession === 'home' ? 'away' : 'home' }));
+  };
+
+  const setMatchCategory = (category: MatchCategory) => {
+    const dur = CATEGORY_DURATION_MAP[category]?.minutes || 30;
+    setMatch((prev) => ({
+      ...prev,
+      category,
+      periodDurationMinutes: dur,
+    }));
+  };
+
+  const requestTimeout = (teamId: string): boolean => {
+    const isHome = teamId === team.id;
+    const teamName = isHome ? team.name : match.awayTeam.name;
+    const timeouts = isHome ? (match.homeTimeouts || []) : (match.awayTimeouts || []);
+
+    // Check IHF regulation: max 3 per match
+    if (timeouts.length >= 3) {
+      alert(`El equipo ${teamName} ya ha consumido sus 3 Tiempos Muertos reglamentarios.`);
+      return false;
+    }
+
+    // Check IHF regulation: max 2 per period
+    const periodTimeouts = timeouts.filter((t) => t.period === match.currentPeriod);
+    if (periodTimeouts.length >= 2) {
+      alert(`El equipo ${teamName} ya ha utilizado el máximo de 2 Tiempos Muertos permitidos en este ${match.currentPeriod}º periodo.`);
+      return false;
+    }
+
+    const nextTimeoutNumber = (timeouts.length + 1) as 1 | 2 | 3;
+    const newTimeout: TeamTimeout = {
+      number: nextTimeoutNumber,
+      period: match.currentPeriod,
+      matchTimeSeconds: match.matchTimeSeconds,
+    };
+
+    const timeoutEvent: MatchEvent = {
+      id: `timeout-${Date.now()}`,
+      matchId: match.id,
+      timestamp: Date.now(),
+      period: match.currentPeriod,
+      matchTimeSeconds: match.matchTimeSeconds,
+      teamId,
+      type: 'timeout',
+      scoreHomeAfter: match.homeScore,
+      scoreAwayAfter: match.awayScore,
+      description: `⏱️ TIEMPO MUERTO: ${teamName} (Tarjeta T${nextTimeoutNumber} - ${match.currentPeriod}ºT)`,
+    };
+
+    setMatch((prev) => ({
+      ...prev,
+      isRunning: false, // Detener reloj del partido
+      homeTimeouts: isHome ? [...(prev.homeTimeouts || []), newTimeout] : prev.homeTimeouts,
+      awayTimeouts: !isHome ? [...(prev.awayTimeouts || []), newTimeout] : prev.awayTimeouts,
+      activeTimeoutCountdown: {
+        teamId,
+        teamName,
+        secondsLeft: 60,
+        isActive: true,
+      },
+      events: [timeoutEvent, ...prev.events],
+    }));
+
+    return true;
+  };
+
+  const cancelTimeoutCountdown = () => {
+    setMatch((prev) => ({
+      ...prev,
+      activeTimeoutCountdown: null,
+    }));
+  };
+
   const resetMatch = () => {
     setMatch({
       ...INITIAL_MATCH,
@@ -520,6 +642,11 @@ export const HandballProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         substitutePlayer,
         setOnCourtPlayers,
         updatePlayerNotes,
+        setPossession,
+        togglePossession,
+        setMatchCategory,
+        requestTimeout,
+        cancelTimeoutCountdown,
       }}
     >
       {children}
