@@ -24,6 +24,7 @@ export interface PlayerStats {
   yellowCards: number;
   redCards: number;
   plusMinus: number;
+  timeOnCourtSeconds: number;
 }
 
 export interface Player {
@@ -38,6 +39,7 @@ export interface Player {
   weightKg?: number;
   isCaptain?: boolean;
   isActive: boolean;
+  notes?: string;
   stats: PlayerStats;
 }
 
@@ -131,7 +133,7 @@ export const DISCIPLINE_LABELS: Record<DisciplineType, { label: string; color: s
   blue_card: { label: 'Tarjeta Azul', color: 'blue' },
 };
 
-export type EventType = 'shot' | 'turnover' | 'steal' | 'discipline' | 'timeout';
+export type EventType = 'shot' | 'turnover' | 'steal' | 'discipline' | 'timeout' | 'substitution';
 
 export interface ActiveExclusion {
   id: string;
@@ -151,6 +153,7 @@ export interface MatchEvent {
   matchTimeSeconds: number;
   teamId: string;
   playerId?: string;
+  substitutePlayerId?: string;
   goalkeeperId?: string;
   type: EventType;
   shotOutcome?: ShotOutcome;
@@ -179,6 +182,7 @@ export interface Match {
   periodDurationMinutes: number;
   isRunning: boolean;
   activeExclusions: ActiveExclusion[];
+  onCourtPlayerIds: string[];
   events: MatchEvent[];
   isFinished: boolean;
 }

@@ -6,6 +6,7 @@ import { Court2D } from './Court2D';
 import { Goal2D } from './Goal2D';
 import { ExclusionTracker } from './ExclusionTracker';
 import { EventLog } from './EventLog';
+import { LineupRotations } from './LineupRotations';
 import {
   Play,
   Pause,
@@ -321,68 +322,102 @@ export const LiveConsole: React.FC = () => {
         </div>
       </div>
 
-      {/* 2. PLAYER SELECTOR STRIP */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <UserCheck className="w-4 h-4 text-blue-400" />
-            <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">
-              Jugador Ejecutor ({currentTeam.name}):
-            </span>
-          </div>
+      {/* 2. ON-COURT 7 LINEUP, ROTATIONS & EXECUTOR SELECTOR */}
+      {isHomeActive ? (
+        <div className="space-y-3">
+          <LineupRotations
+            selectedPlayerId={selectedPlayerId}
+            onSelectPlayer={setSelectedPlayerId}
+          />
 
-          {/* Tactical 7 vs 6 button */}
-          <button
-            type="button"
-            onClick={() => setIs7v6(!is7v6)}
-            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all border ${
-              is7v6
-                ? 'bg-amber-600 border-amber-400 text-white shadow-md'
-                : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
-            }`}
-          >
-            {is7v6 ? '⚠️ Ataque 7 vs 6 Activo (Portero Fuera)' : 'Táctica: 6 vs 6 Regular'}
-          </button>
-        </div>
+          {/* Tactical Bar: Active Selection + 7v6 Mode */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 px-4 shadow-xl flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center space-x-3">
+              <span className="text-xs font-bold text-slate-400">Ejecutor Seleccionado:</span>
+              {selectedPlayer ? (
+                <div className="flex items-center space-x-2 bg-blue-950/80 border border-blue-600/50 px-3 py-1 rounded-xl">
+                  <span className="w-5 h-5 rounded-md bg-blue-600 text-white font-mono font-black text-xs flex items-center justify-center">
+                    #{selectedPlayer.number}
+                  </span>
+                  <span className="text-xs font-bold text-white">{selectedPlayer.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPlayerId(null)}
+                    className="text-slate-400 hover:text-white text-xs ml-1 font-bold"
+                    title="Deseleccionar"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ) : (
+                <span className="text-xs font-bold text-slate-300 bg-slate-950 px-3 py-1 rounded-xl border border-slate-800">
+                  🏢 {match.homeTeam.name} (Acción Colectiva / Equipo)
+                </span>
+              )}
+            </div>
 
-        {/* Players selection buttons */}
-        <div className="flex flex-wrap gap-2 max-h-36 overflow-y-auto pr-1">
-          {/* General Team button */}
-          <button
-            type="button"
-            onClick={() => setSelectedPlayerId(null)}
-            className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all ${
-              selectedPlayerId === null
-                ? 'bg-slate-100 border-white text-slate-900 shadow-md font-black'
-                : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800'
-            }`}
-          >
-            🏢 {currentTeam.shortName} (Colectivo)
-          </button>
-
-          {/* Individual Players */}
-          {teamPlayers.map((p) => {
-            const isSelected = selectedPlayerId === p.id;
-            return (
+            <div className="flex items-center space-x-2">
               <button
-                key={p.id}
                 type="button"
-                onClick={() => setSelectedPlayerId(p.id)}
-                className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all flex items-center space-x-2 ${
-                  isSelected
-                    ? 'bg-blue-600 border-white text-white shadow-lg shadow-blue-600/30 font-black scale-105'
-                    : 'bg-slate-950 border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800'
+                onClick={() => setSelectedPlayerId(null)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
+                  selectedPlayerId === null
+                    ? 'bg-slate-200 text-slate-900 border-white shadow'
+                    : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
                 }`}
               >
-                <span className="w-5 h-5 rounded-md bg-slate-900 border border-slate-700 flex items-center justify-center text-[10px] text-blue-400 font-black">
-                  #{p.number}
-                </span>
-                <span>{p.name.split(' ')[0]}</span>
+                🏢 Colectivo
               </button>
-            );
-          })}
+
+              <button
+                type="button"
+                onClick={() => setIs7v6(!is7v6)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border ${
+                  is7v6
+                    ? 'bg-amber-600 border-amber-400 text-white shadow-md'
+                    : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
+                }`}
+              >
+                {is7v6 ? '⚠️ Ataque 7 vs 6 Activo' : 'Táctica: 6 vs 6 Regular'}
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
+      ) : (
+        /* Visitor team selector strip */
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <UserCheck className="w-4 h-4 text-rose-400" />
+              <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+                Registrar acción para el rival ({match.awayTeam.name}):
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIs7v6(!is7v6)}
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all border ${
+                is7v6
+                  ? 'bg-amber-600 border-amber-400 text-white shadow-md'
+                  : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
+              }`}
+            >
+              {is7v6 ? '⚠️ Ataque 7 vs 6 Rival' : 'Táctica: 6 vs 6 Regular'}
+            </button>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setSelectedPlayerId(null)}
+              className="px-4 py-2 rounded-xl text-xs font-bold bg-rose-600 text-white shadow border border-rose-500"
+            >
+              🏢 {match.awayTeam.name} (Acción Colectiva)
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 3. ACTION TABS (LANZAMIENTO | PÉRDIDA | ROBO | DISCIPLINA) */}
       <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6">

@@ -377,16 +377,32 @@ export const RosterManager: React.FC = () => {
                     </div>
                   </div>
                 )}
+                {/* Notes from coach indicator */}
+                {player.notes && (
+                  <div
+                    onClick={() => handleOpenAnalysisModal(player)}
+                    className="mt-2.5 p-2 rounded-xl bg-amber-950/30 border border-amber-800/40 text-[11px] text-amber-200/90 cursor-pointer hover:bg-amber-950/50 transition-colors flex items-start gap-1.5"
+                    title={player.notes}
+                  >
+                    <span className="font-bold text-amber-400 shrink-0">📝 DT:</span>
+                    <span className="truncate">{player.notes}</span>
+                  </div>
+                )}
               </div>
 
-              {/* Bottom footer: Discipline summary */}
+              {/* Bottom footer: Discipline summary & Minutes */}
               <div className="mt-3 pt-2.5 border-t border-slate-800/60 flex items-center justify-between text-[11px] text-slate-400 font-medium">
-                <span className="flex items-center gap-1">
-                  <Activity className="w-3 h-3 text-slate-500" />
-                  +/-: <strong className={player.stats.plusMinus >= 0 ? 'text-emerald-400' : 'text-rose-400'}>
-                    {player.stats.plusMinus > 0 ? `+${player.stats.plusMinus}` : player.stats.plusMinus}
-                  </strong>
-                </span>
+                <div className="flex items-center space-x-2.5">
+                  <span className="flex items-center gap-1 font-mono">
+                    <Activity className="w-3 h-3 text-slate-500" />
+                    +/-: <strong className={player.stats.plusMinus >= 0 ? 'text-emerald-400' : 'text-rose-400'}>
+                      {player.stats.plusMinus > 0 ? `+${player.stats.plusMinus}` : player.stats.plusMinus}
+                    </strong>
+                  </span>
+                  <span className="text-slate-500 font-mono text-[10px]">
+                    ⏱️ {Math.floor((player.stats.timeOnCourtSeconds || 0) / 60)}m
+                  </span>
+                </div>
 
                 <div className="flex items-center space-x-2">
                   {player.stats.twoMinutes > 0 && (

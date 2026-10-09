@@ -28,6 +28,9 @@ interface HandballContextType {
   exportBackup: () => void;
   importBackup: (jsonData: string) => boolean;
   importPlayersBulk: (newPlayers: Player[], replace: boolean) => void;
+  substitutePlayer: (outPlayerId: string, inPlayerId: string) => void;
+  setOnCourtPlayers: (playerIds: string[]) => void;
+  updatePlayerNotes: (playerId: string, notes: string) => void;
 }
 
 const STORAGE_KEY_PLAYERS = 'hb_players_v1';
@@ -47,12 +50,33 @@ export const HandballProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const [players, setPlayers] = useState<Player[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEY_PLAYERS);
-    return saved ? JSON.parse(saved) : INITIAL_PLAYERS;
+    if (!saved) return INITIAL_PLAYERS;
+    try {
+      const parsed: Player[] = JSON.parse(saved);
+      return parsed.map((p) => ({
+        ...p,
+        stats: {
+          ...p.stats,
+          timeOnCourtSeconds: p.stats.timeOnCourtSeconds ?? 0,
+        },
+      }));
+    } catch {
+      return INITIAL_PLAYERS;
+    }
   });
 
   const [match, setMatch] = useState<Match>(() => {
     const saved = localStorage.getItem(STORAGE_KEY_MATCH);
-    return saved ? JSON.parse(saved) : INITIAL_MATCH;
+    if (!saved) return INITIAL_MATCH;
+    try {
+      const parsed: Match = JSON.parse(saved);
+      if (!parsed.onCourtPlayerIds || parsed.onCourtPlayerIds.length === 0) {
+        parsed.onCourtPlayerIds = INITIAL_MATCH.onCourtPlayerIds || ['p-1', 'p-7', 'p-24', 'p-33', 'p-10', 'p-9', 'p-18'];
+      }
+      return parsed;
+    } catch {
+      return INITIAL_MATCH;
+    }
   });
 
   // Save to LocalStorage
@@ -68,7 +92,7 @@ export const HandballProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     localStorage.setItem(STORAGE_KEY_MATCH, JSON.stringify(match));
   }, [match]);
 
-  // Match live clock effect
+  // Match live clock effect & on-court playing time accumulator
   useEffect(() => {
     let interval: any = null;
     if (match.isRunning && !match.isFinished) {
@@ -81,6 +105,26 @@ export const HandballProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           const updatedExclusions = prev.activeExclusions.filter((exc) => {
             return nextSeconds < exc.startMatchTimeSeconds + exc.durationSeconds;
           });
+
+          // Accumulate playing time for players currently on court
+          const currentCourtIds = prev.onCourtPlayerIds || [];
+          if (currentCourtIds.length > 0) {
+            setPlayers((currentPlayers) => {
+              const courtSet = new Set(currentCourtIds);
+              return currentPlayers.map((p) => {
+                if (courtSet.has(p.id)) {
+                  return {
+                    ...p,
+                    stats: {
+                      ...p.stats,
+                      timeOnCourtSeconds: (p.stats.timeOnCourtSeconds || 0) + 1,
+                    },
+                  };
+                }
+                return p;
+              });
+            });
+          }
 
           if (nextSeconds >= maxSeconds) {
             return {
@@ -121,6 +165,7 @@ export const HandballProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         yellowCards: 0,
         redCards: 0,
         plusMinus: 0,
+        timeOnCourtSeconds: 0,
       },
     };
     setPlayers((prev) => [...prev, newPlayer]);
@@ -155,6 +200,56 @@ export const HandballProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const updateTeam = (teamData: Partial<Team>) => {
     setTeam((prev) => ({ ...prev, ...teamData }));
+  };
+
+  const updatePlayerNotes = (playerId: string, notes: string) => {
+    setPlayers((prev) =>
+      prev.map((p) => (p.id === playerId ? { ...p, notes } : p))
+    );
+  };
+
+  const setOnCourtPlayers = (playerIds: string[]) => {
+    setMatch((prev) => ({
+      ...prev,
+      onCourtPlayerIds: playerIds,
+    }));
+  };
+
+  const substitutePlayer = (outPlayerId: string, inPlayerId: string) => {
+    const outPlayer = players.find((p) => p.id === outPlayerId);
+    const inPlayer = players.find((p) => p.id === inPlayerId);
+    if (!outPlayer || !inPlayer) return;
+
+    setMatch((prev) => {
+      const currentOnCourt = [...(prev.onCourtPlayerIds || [])];
+      const idx = currentOnCourt.indexOf(outPlayerId);
+      if (idx !== -1) {
+        currentOnCourt[idx] = inPlayerId;
+      } else if (currentOnCourt.length < 7) {
+        currentOnCourt.push(inPlayerId);
+      }
+
+      const subEvent: MatchEvent = {
+        id: `sub-${Date.now()}`,
+        matchId: prev.id,
+        timestamp: Date.now(),
+        period: prev.currentPeriod,
+        matchTimeSeconds: prev.matchTimeSeconds,
+        teamId: team.id,
+        playerId: outPlayerId,
+        substitutePlayerId: inPlayerId,
+        type: 'substitution',
+        scoreHomeAfter: prev.homeScore,
+        scoreAwayAfter: prev.awayScore,
+        description: `🔄 Cambio: Entra #${inPlayer.number} ${inPlayer.name} por #${outPlayer.number} ${outPlayer.name}`,
+      };
+
+      return {
+        ...prev,
+        onCourtPlayerIds: currentOnCourt,
+        events: [subEvent, ...prev.events],
+      };
+    });
   };
 
   // Match Timer
@@ -422,6 +517,9 @@ export const HandballProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         exportBackup,
         importBackup,
         importPlayersBulk,
+        substitutePlayer,
+        setOnCourtPlayers,
+        updatePlayerNotes,
       }}
     >
       {children}

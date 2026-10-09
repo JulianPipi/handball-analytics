@@ -24,6 +24,7 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
   const [heightCm, setHeightCm] = useState<number | ''>('');
   const [weightKg, setWeightKg] = useState<number | ''>('');
   const [isCaptain, setIsCaptain] = useState(false);
+  const [notes, setNotes] = useState('');
 
   useEffect(() => {
     if (initialPlayer) {
@@ -35,6 +36,7 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
       setHeightCm(initialPlayer.heightCm || '');
       setWeightKg(initialPlayer.weightKg || '');
       setIsCaptain(!!initialPlayer.isCaptain);
+      setNotes(initialPlayer.notes || '');
     } else {
       setName('');
       setNumber(7);
@@ -44,6 +46,7 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
       setHeightCm(185);
       setWeightKg(85);
       setIsCaptain(false);
+      setNotes('');
     }
   }, [initialPlayer, isOpen]);
 
@@ -63,6 +66,7 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
       weightKg: weightKg ? Number(weightKg) : undefined,
       isCaptain,
       isActive: true,
+      notes: notes.trim() || undefined,
     });
     onClose();
   };
@@ -216,7 +220,7 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
           </div>
 
           {/* Capitán */}
-          <div className="pt-2">
+          <div className="pt-1">
             <label className="flex items-center space-x-2 cursor-pointer select-none">
               <input
                 type="checkbox"
@@ -224,8 +228,22 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
                 onChange={(e) => setIsCaptain(e.target.checked)}
                 className="w-4 h-4 rounded text-blue-600 bg-slate-950 border-slate-700 focus:ring-blue-500"
               />
-              <span className="text-sm text-slate-300">Capitán del equipo (C)</span>
+              <span className="text-xs font-semibold text-slate-300">Capitán del equipo (C)</span>
             </label>
+          </div>
+
+          {/* Notas del Entrenador */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
+              Notas y Observaciones del Entrenador (DT)
+            </label>
+            <textarea
+              rows={2}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Notas técnicas, tácticas, puntos a trabajar..."
+              className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500 placeholder-slate-600 resize-y"
+            />
           </div>
 
           {/* Submit */}

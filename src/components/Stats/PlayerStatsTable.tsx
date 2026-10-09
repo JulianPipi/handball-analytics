@@ -8,13 +8,19 @@ interface PlayerStatsTableProps {
   players: Player[];
 }
 
-type SortField = 'number' | 'name' | 'goals' | 'shots' | 'efficiency' | 'assists' | 'turnovers' | 'steals' | 'twoMinutes' | 'plusMinus';
+type SortField = 'number' | 'name' | 'goals' | 'shots' | 'efficiency' | 'assists' | 'turnovers' | 'steals' | 'twoMinutes' | 'plusMinus' | 'timeOnCourt';
 
 export const PlayerStatsTable: React.FC<PlayerStatsTableProps> = ({ players }) => {
   const [sortField, setSortField] = useState<SortField>('goals');
   const [sortAsc, setSortAsc] = useState<boolean>(false);
   const [analyzingPlayer, setAnalyzingPlayer] = useState<Player | null>(null);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+
+  const formatTime = (totalSec: number = 0) => {
+    const m = Math.floor(totalSec / 60);
+    const s = totalSec % 60;
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -67,6 +73,10 @@ export const PlayerStatsTable: React.FC<PlayerStatsTableProps> = ({ players }) =
       case 'plusMinus':
         aVal = a.stats.plusMinus;
         bVal = b.stats.plusMinus;
+        break;
+      case 'timeOnCourt':
+        aVal = a.stats.timeOnCourtSeconds || 0;
+        bVal = b.stats.timeOnCourtSeconds || 0;
         break;
     }
 
@@ -151,6 +161,13 @@ export const PlayerStatsTable: React.FC<PlayerStatsTableProps> = ({ players }) =
               >
                 <div className="flex items-center justify-center gap-1">+/- <ArrowUpDown className="w-3 h-3" /></div>
               </th>
+              <th
+                onClick={() => handleSort('timeOnCourt')}
+                className="py-3 px-2 text-center cursor-pointer hover:text-white"
+                title="Minutos jugados en pista"
+              >
+                <div className="flex items-center justify-center gap-1">Tiempo <ArrowUpDown className="w-3 h-3" /></div>
+              </th>
               <th className="py-3 px-2 text-center">Diagnóstico</th>
             </tr>
           </thead>
@@ -224,6 +241,9 @@ export const PlayerStatsTable: React.FC<PlayerStatsTableProps> = ({ players }) =
                     <span className={p.stats.plusMinus >= 0 ? 'text-emerald-400' : 'text-rose-400'}>
                       {p.stats.plusMinus > 0 ? `+${p.stats.plusMinus}` : p.stats.plusMinus}
                     </span>
+                  </td>
+                  <td className="py-2.5 px-2 text-center font-mono font-bold text-slate-300">
+                    {formatTime(p.stats.timeOnCourtSeconds || 0)}
                   </td>
                   <td className="py-2.5 px-2 text-center">
                     <button

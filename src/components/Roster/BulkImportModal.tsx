@@ -252,6 +252,7 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({ isOpen, onClos
         yellowCards: 0,
         redCards: 0,
         plusMinus: 0,
+        timeOnCourtSeconds: 0,
       },
     }));
 

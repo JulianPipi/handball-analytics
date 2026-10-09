@@ -44,7 +44,8 @@ export const INITIAL_PLAYERS: Player[] = [
       twoMinutes: 0,
       yellowCards: 0,
       redCards: 0,
-      plusMinus: 28,
+      plusMinus: 15,
+      timeOnCourtSeconds: 1250,
     },
   },
   {
@@ -68,7 +69,8 @@ export const INITIAL_PLAYERS: Player[] = [
       twoMinutes: 1,
       yellowCards: 0,
       redCards: 0,
-      plusMinus: 12,
+      plusMinus: 15,
+      timeOnCourtSeconds: 1250,
     },
   },
 
@@ -94,7 +96,8 @@ export const INITIAL_PLAYERS: Player[] = [
       twoMinutes: 3,
       yellowCards: 1,
       redCards: 0,
-      plusMinus: 34,
+      plusMinus: 15,
+      timeOnCourtSeconds: 1250,
     },
   },
   {
@@ -118,7 +121,8 @@ export const INITIAL_PLAYERS: Player[] = [
       twoMinutes: 1,
       yellowCards: 0,
       redCards: 0,
-      plusMinus: 14,
+      plusMinus: 15,
+      timeOnCourtSeconds: 1250,
     },
   },
 
@@ -144,7 +148,8 @@ export const INITIAL_PLAYERS: Player[] = [
       twoMinutes: 8,
       yellowCards: 4,
       redCards: 1,
-      plusMinus: 42,
+      plusMinus: 15,
+      timeOnCourtSeconds: 1250,
     },
   },
   {
@@ -169,7 +174,8 @@ export const INITIAL_PLAYERS: Player[] = [
       twoMinutes: 4,
       yellowCards: 2,
       redCards: 0,
-      plusMinus: 38,
+      plusMinus: 15,
+      timeOnCourtSeconds: 1250,
     },
   },
 
@@ -195,7 +201,8 @@ export const INITIAL_PLAYERS: Player[] = [
       twoMinutes: 2,
       yellowCards: 1,
       redCards: 0,
-      plusMinus: 46,
+      plusMinus: 15,
+      timeOnCourtSeconds: 1250,
     },
   },
   {
@@ -220,7 +227,8 @@ export const INITIAL_PLAYERS: Player[] = [
       twoMinutes: 3,
       yellowCards: 2,
       redCards: 0,
-      plusMinus: 31,
+      plusMinus: 15,
+      timeOnCourtSeconds: 1250,
     },
   },
 
@@ -246,7 +254,8 @@ export const INITIAL_PLAYERS: Player[] = [
       twoMinutes: 4,
       yellowCards: 3,
       redCards: 0,
-      plusMinus: 52,
+      plusMinus: 15,
+      timeOnCourtSeconds: 1250,
     },
   },
   {
@@ -270,7 +279,8 @@ export const INITIAL_PLAYERS: Player[] = [
       twoMinutes: 9,
       yellowCards: 5,
       redCards: 0,
-      plusMinus: 27,
+      plusMinus: 15,
+      timeOnCourtSeconds: 1250,
     },
   },
 
@@ -296,7 +306,8 @@ export const INITIAL_PLAYERS: Player[] = [
       twoMinutes: 1,
       yellowCards: 1,
       redCards: 0,
-      plusMinus: 58,
+      plusMinus: 15,
+      timeOnCourtSeconds: 1250,
     },
   },
   {
@@ -320,7 +331,8 @@ export const INITIAL_PLAYERS: Player[] = [
       twoMinutes: 2,
       yellowCards: 0,
       redCards: 0,
-      plusMinus: 23,
+      plusMinus: 15,
+      timeOnCourtSeconds: 1250,
     },
   },
 
@@ -346,7 +358,8 @@ export const INITIAL_PLAYERS: Player[] = [
       twoMinutes: 5,
       yellowCards: 2,
       redCards: 0,
-      plusMinus: 35,
+      plusMinus: 15,
+      timeOnCourtSeconds: 1250,
     },
   },
   {
@@ -370,7 +383,8 @@ export const INITIAL_PLAYERS: Player[] = [
       twoMinutes: 11,
       yellowCards: 6,
       redCards: 1,
-      plusMinus: 40,
+      plusMinus: 15,
+      timeOnCourtSeconds: 1250,
     },
   },
 ];
@@ -389,6 +403,7 @@ export const INITIAL_MATCH: Match = {
   periodDurationMinutes: 30,
   isRunning: false,
   activeExclusions: [],
+  onCourtPlayerIds: ['p-1', 'p-7', 'p-24', 'p-33', 'p-10', 'p-9', 'p-18'],
   events: [],
   isFinished: false,
 };

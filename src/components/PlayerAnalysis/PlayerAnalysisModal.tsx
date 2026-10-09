@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { Player } from '../../types/handball';
 import { POSITION_LABELS } from '../../types/handball';
+import { useHandball } from '../../context/HandballContext';
 import { generatePlayerDiagnostic } from '../../utils/playerDiagnostics';
 import {
   X,
@@ -10,6 +11,10 @@ import {
   Dumbbell,
   Printer,
   Sparkles,
+  FileText,
+  Save,
+  Check,
+  Calendar,
 } from 'lucide-react';
 
 interface PlayerAnalysisModalProps {
@@ -27,10 +32,39 @@ export const PlayerAnalysisModal: React.FC<PlayerAnalysisModalProps> = ({
   allPlayers,
   onSelectPlayer,
 }) => {
+  const { updatePlayerNotes } = useHandball();
+
   // Simulator adjustments
   const [shotEffBoost, setShotEffBoost] = useState(0); // 0 to 15%
   const [turnoverReduction, setTurnoverReduction] = useState(0); // 0 to 10
   const [disciplineBoost, setDisciplineBoost] = useState(false);
+
+  // Coach scouting notes state
+  const [coachNotes, setCoachNotes] = useState(player?.notes || '');
+  const [savedSuccess, setSavedSuccess] = useState(false);
+
+  useEffect(() => {
+    if (player) {
+      setCoachNotes(player.notes || '');
+      setSavedSuccess(false);
+    }
+  }, [player?.id, isOpen]);
+
+  const handleSaveNotes = () => {
+    if (!player) return;
+    updatePlayerNotes(player.id, coachNotes);
+    setSavedSuccess(true);
+    setTimeout(() => setSavedSuccess(false), 2500);
+  };
+
+  const handleInsertTag = (tag: string) => {
+    setCoachNotes((prev) => (prev ? `${prev}\n${tag}: ` : `${tag}: `));
+  };
+
+  const handleInsertDate = () => {
+    const today = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    setCoachNotes((prev) => (prev ? `${prev}\n[${today}] ` : `[${today}] `));
+  };
 
   if (!isOpen || !player) return null;
 
@@ -321,6 +355,77 @@ export const PlayerAnalysisModal: React.FC<PlayerAnalysisModalProps> = ({
               </button>
             </div>
           </div>
+        </div>
+
+        {/* 6. Cuaderno del Entrenador / Notas de Scouting */}
+        <div className="p-6 rounded-3xl bg-slate-950/70 border border-slate-800 space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center space-x-2.5">
+              <div className="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                <FileText className="w-4 h-4" />
+              </div>
+              <div>
+                <h4 className="text-sm font-black text-white uppercase tracking-wider">
+                  Cuaderno del Entrenador & Notas de Scouting
+                </h4>
+                <p className="text-[11px] text-slate-400">
+                  Observaciones tácticas, feedback individualizado y evolución para {player.name}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              {savedSuccess && (
+                <span className="text-xs font-bold text-emerald-400 flex items-center gap-1 animate-pulse">
+                  <Check className="w-3.5 h-3.5" /> Guardado
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={handleSaveNotes}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-500 text-white shadow-lg shadow-amber-600/30 transition-all flex items-center space-x-1.5"
+              >
+                <Save className="w-3.5 h-3.5" />
+                <span>Guardar Notas</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Quick tags */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-1">
+              Insertar etiqueta:
+            </span>
+            <button
+              type="button"
+              onClick={handleInsertDate}
+              className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-slate-800 hover:bg-slate-700 text-blue-300 border border-slate-700 flex items-center gap-1"
+            >
+              <Calendar className="w-3 h-3" /> Fecha Hoy
+            </button>
+            {['[TÁCTICA]', '[DEFENSA]', '[LANZAMIENTO]', '[CONTRAATAQUE]', '[FÍSICO]', '[ACTITUD]'].map((tag) => (
+              <button
+                key={tag}
+                type="button"
+                onClick={() => handleInsertTag(tag)}
+                className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-slate-900 hover:bg-slate-800 text-amber-300 border border-slate-800 transition-colors"
+              >
+                + {tag}
+              </button>
+            ))}
+          </div>
+
+          {/* Textarea */}
+          <textarea
+            rows={4}
+            value={coachNotes}
+            onChange={(e) => {
+              setCoachNotes(e.target.value);
+              setSavedSuccess(false);
+            }}
+            placeholder="Escribe tus observaciones técnicas sobre el jugador aquí. Ejemplo:&#10;[08/10] Excelente repliegue defensivo y toma de decisiones en 1x1. Trabajar lanzamiento bajo apoyo contra porteros altos."
+            className="w-full bg-slate-900 border border-slate-800 rounded-2xl p-3.5 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-amber-500 font-sans leading-relaxed resize-y"
+          />
         </div>
       </div>
     </div>
