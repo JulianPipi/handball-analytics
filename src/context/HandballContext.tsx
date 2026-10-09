@@ -37,6 +37,7 @@ interface HandballContextType {
   setMatchCategory: (category: MatchCategory) => void;
   requestTimeout: (teamId: string) => boolean;
   cancelTimeoutCountdown: () => void;
+  startSecondPeriod: () => void;
 }
 
 const STORAGE_KEY_PLAYERS = 'hb_players_v1';
@@ -563,6 +564,17 @@ export const HandballProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }));
   };
 
+  const startSecondPeriod = () => {
+    setMatch((prev) => ({
+      ...prev,
+      currentPeriod: 2,
+      matchTimeSeconds: 0,
+      isRunning: false,
+      possession: prev.possession === 'home' ? 'away' : 'home',
+      activeTimeoutCountdown: null,
+    }));
+  };
+
   const resetMatch = () => {
     setMatch({
       ...INITIAL_MATCH,
@@ -647,6 +659,7 @@ export const HandballProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         setMatchCategory,
         requestTimeout,
         cancelTimeoutCountdown,
+        startSecondPeriod,
       }}
     >
       {children}

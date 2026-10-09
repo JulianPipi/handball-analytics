@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useHandball } from '../../context/HandballContext';
-import type { MatchCategory, Player } from '../../types/handball';
-import { CATEGORY_DURATION_MAP, POSITION_LABELS } from '../../types/handball';
+import type { MatchCategory, Player, GoalZone } from '../../types/handball';
+import { CATEGORY_DURATION_MAP, POSITION_LABELS, GOAL_ZONE_LABELS } from '../../types/handball';
 import { ExclusionTracker } from './ExclusionTracker';
 import { EventLog } from './EventLog';
 import { LineupRotations } from './LineupRotations';
+import { GoalQuadrantModal } from './GoalQuadrantModal';
+import type { PendingShotType } from './GoalQuadrantModal';
+import { TacticalBreakdownModal } from './TacticalBreakdownModal';
 import {
   Play,
   Pause,
@@ -15,7 +18,16 @@ import {
   ChevronDown,
   ChevronUp,
   Timer,
+  BarChart3,
 } from 'lucide-react';
+
+interface PendingShotAction {
+  type: PendingShotType;
+  actorName: string;
+  actorNumber?: number;
+  playerId?: string;
+  is7v6?: boolean;
+}
 
 export const LiveConsole: React.FC = () => {
   const {
@@ -34,6 +46,7 @@ export const LiveConsole: React.FC = () => {
     setMatchCategory,
     requestTimeout,
     cancelTimeoutCountdown,
+    startSecondPeriod,
     addExclusion,
   } = useHandball();
 
@@ -43,6 +56,39 @@ export const LiveConsole: React.FC = () => {
   const [showRotationsPanel, setShowRotationsPanel] = useState(false);
   // 7 vs 6 tactical mode
   const [is7v6, setIs7v6] = useState<boolean>(false);
+
+  // Pending shot action for 2nd instance Goal Quadrant modal
+  const [pendingShot, setPendingShot] = useState<PendingShotAction | null>(null);
+
+  // Tactical breakdown modal (Charla Técnica / TMO / Halftime)
+  const [showTacticalModal, setShowTacticalModal] = useState<boolean>(false);
+  const [hasDismissedHalftimeModal, setHasDismissedHalftimeModal] = useState<boolean>(false);
+
+  // Halftime auto-trigger calculation
+  const maxPeriodSeconds = match.periodDurationMinutes * 60;
+  const isPeriodFinished = match.matchTimeSeconds >= maxPeriodSeconds;
+  const isHalftime = isPeriodFinished && match.currentPeriod === 1;
+
+  // Auto-open tactical modal when 1st half finishes (reglamentario)
+  useEffect(() => {
+    if (isHalftime && !hasDismissedHalftimeModal) {
+      setShowTacticalModal(true);
+    }
+  }, [isHalftime, hasDismissedHalftimeModal]);
+
+  // Reset halftime dismissal flag when moving to period 2
+  useEffect(() => {
+    if (match.currentPeriod === 2) {
+      setHasDismissedHalftimeModal(false);
+    }
+  }, [match.currentPeriod]);
+
+  // Auto-open tactical modal when a timeout is requested
+  useEffect(() => {
+    if (match.activeTimeoutCountdown?.isActive) {
+      setShowTacticalModal(true);
+    }
+  }, [match.activeTimeoutCountdown?.isActive]);
 
   // Timer formatting
   const minutes = Math.floor(match.matchTimeSeconds / 60);
@@ -84,42 +130,103 @@ export const LiveConsole: React.FC = () => {
   // ACTION HANDLERS (FAST 1-TOUCH LOGGING WITH POSSESSION SWITCH)
   // -------------------------------------------------------------
 
-  // ATTACK: GOL NUESTRO
+  // ATTACK: GOL NUESTRO (Abre cuadrante de portería en 2ª instancia)
   const handleAttackGoal = () => {
-    const actorName = selectedPlayer ? `#${selectedPlayer.number} ${selectedPlayer.name}` : match.homeTeam.name;
-    recordEvent({
-      matchId: match.id,
-      period: match.currentPeriod,
-      matchTimeSeconds: match.matchTimeSeconds,
-      teamId: match.homeTeam.id,
+    const actorName = selectedPlayer ? selectedPlayer.name : match.homeTeam.name;
+    setPendingShot({
+      type: 'home_goal',
+      actorName,
+      actorNumber: selectedPlayer?.number,
       playerId: selectedPlayerId || undefined,
-      type: 'shot',
-      shotOutcome: 'goal',
-      courtZone: '6m_center',
-      goalZone: 'mid_center',
       is7v6,
-      description: `⚽ GOL de ${actorName}${is7v6 ? ' (7v6)' : ''}`,
     });
-    // Auto switch possession to Defense (rival restarts from center)
-    setPossession('away');
+  };
+
+  // ATTACK: PARADA DEL RIVAL (Abre cuadrante de portería en 2ª instancia)
+  const handleAttackSaved = () => {
+    const actorName = selectedPlayer ? selectedPlayer.name : match.homeTeam.name;
+    setPendingShot({
+      type: 'rival_saved',
+      actorName,
+      actorNumber: selectedPlayer?.number,
+      playerId: selectedPlayerId || undefined,
+    });
+  };
+
+  // CONFIRMACIÓN DE CUADRANTE EN SEGUNDA INSTANCIA
+  const handleConfirmQuadrant = (zone: GoalZone) => {
+    if (!pendingShot) return;
+    const zoneLabel = GOAL_ZONE_LABELS[zone];
+
+    if (pendingShot.type === 'home_goal') {
+      const actorLabel = pendingShot.actorNumber ? `#${pendingShot.actorNumber} ${pendingShot.actorName}` : pendingShot.actorName;
+      recordEvent({
+        matchId: match.id,
+        period: match.currentPeriod,
+        matchTimeSeconds: match.matchTimeSeconds,
+        teamId: match.homeTeam.id,
+        playerId: pendingShot.playerId,
+        type: 'shot',
+        shotOutcome: 'goal',
+        courtZone: '6m_center',
+        goalZone: zone,
+        is7v6: pendingShot.is7v6,
+        description: `⚽ GOL de ${actorLabel} [${zoneLabel}]${pendingShot.is7v6 ? ' (7v6)' : ''}`,
+      });
+      setPossession('away');
+    } else if (pendingShot.type === 'rival_saved') {
+      const actorLabel = pendingShot.actorNumber ? `#${pendingShot.actorNumber} ${pendingShot.actorName}` : pendingShot.actorName;
+      recordEvent({
+        matchId: match.id,
+        period: match.currentPeriod,
+        matchTimeSeconds: match.matchTimeSeconds,
+        teamId: match.homeTeam.id,
+        playerId: pendingShot.playerId,
+        type: 'shot',
+        shotOutcome: 'save',
+        goalZone: zone,
+        description: `🧤 Parada del arquero rival a tiro de ${actorLabel} [${zoneLabel}]`,
+      });
+      setPossession('away');
+    } else if (pendingShot.type === 'home_saved') {
+      const gkLabel = pendingShot.actorNumber ? `#${pendingShot.actorNumber} ${pendingShot.actorName}` : pendingShot.actorName;
+      recordEvent({
+        matchId: match.id,
+        period: match.currentPeriod,
+        matchTimeSeconds: match.matchTimeSeconds,
+        teamId: match.awayTeam.id,
+        goalkeeperId: localGoalkeeper?.id,
+        type: 'shot',
+        shotOutcome: 'save',
+        goalZone: zone,
+        description: `🧤 ¡PARADA salvadora de ${gkLabel}! [${zoneLabel}]`,
+      });
+      setPossession('home');
+    } else if (pendingShot.type === 'rival_goal') {
+      recordEvent({
+        matchId: match.id,
+        period: match.currentPeriod,
+        matchTimeSeconds: match.matchTimeSeconds,
+        teamId: match.awayTeam.id,
+        goalkeeperId: localGoalkeeper?.id,
+        type: 'shot',
+        shotOutcome: 'goal',
+        goalZone: zone,
+        description: `❌ Gol del rival (${match.awayTeam.name}) [${zoneLabel}]`,
+      });
+      setPossession('home');
+    }
+
+    setPendingShot(null);
     setSelectedPlayerId(null);
   };
 
-  // ATTACK: PARADA DEL RIVAL
-  const handleAttackSaved = () => {
-    const actorName = selectedPlayer ? `#${selectedPlayer.number} ${selectedPlayer.name}` : match.homeTeam.name;
-    recordEvent({
-      matchId: match.id,
-      period: match.currentPeriod,
-      matchTimeSeconds: match.matchTimeSeconds,
-      teamId: match.homeTeam.id,
-      playerId: selectedPlayerId || undefined,
-      type: 'shot',
-      shotOutcome: 'save',
-      description: `🧤 Parada del arquero rival a tiro de ${actorName}`,
-    });
-    setPossession('away');
-    setSelectedPlayerId(null);
+  const handleSkipCenter = () => {
+    handleConfirmQuadrant('mid_center');
+  };
+
+  const handleCancelShot = () => {
+    setPendingShot(null);
   };
 
   // ATTACK: TIRO FUERA / POSTE
@@ -183,37 +290,24 @@ export const LiveConsole: React.FC = () => {
     });
   };
 
-  // DEFENSE: PARADA DE NUESTRO ARQUERO
+  // DEFENSE: PARADA DE NUESTRO ARQUERO (Abre cuadrante de portería en 2ª instancia)
   const handleDefenseSave = () => {
-    const gkName = localGoalkeeper ? `#${localGoalkeeper.number} ${localGoalkeeper.name}` : 'Arquero';
-    recordEvent({
-      matchId: match.id,
-      period: match.currentPeriod,
-      matchTimeSeconds: match.matchTimeSeconds,
-      teamId: match.awayTeam.id,
-      goalkeeperId: localGoalkeeper?.id,
-      type: 'shot',
-      shotOutcome: 'save',
-      description: `🧤 ¡PARADA salvadora de ${gkName}!`,
+    const gkName = localGoalkeeper ? localGoalkeeper.name : 'Arquero';
+    setPendingShot({
+      type: 'home_saved',
+      actorName: gkName,
+      actorNumber: localGoalkeeper?.number,
+      playerId: localGoalkeeper?.id,
     });
-    setPossession('home');
-    setSelectedPlayerId(null);
   };
 
-  // DEFENSE: GOL RIVAL
+  // DEFENSE: GOL RIVAL (Abre cuadrante de portería en 2ª instancia)
   const handleRivalGoal = () => {
-    recordEvent({
-      matchId: match.id,
-      period: match.currentPeriod,
-      matchTimeSeconds: match.matchTimeSeconds,
-      teamId: match.awayTeam.id,
-      goalkeeperId: localGoalkeeper?.id,
-      type: 'shot',
-      shotOutcome: 'goal',
-      description: `❌ Gol del rival (${match.awayTeam.name})`,
+    setPendingShot({
+      type: 'rival_goal',
+      actorName: match.awayTeam.name,
+      playerId: undefined,
     });
-    setPossession('home');
-    setSelectedPlayerId(null);
   };
 
   // DEFENSE: ROBO / RECUPERO
@@ -323,6 +417,15 @@ export const LiveConsole: React.FC = () => {
 
             <button
               type="button"
+              onClick={() => setShowTacticalModal(true)}
+              className="w-full py-2.5 rounded-2xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 font-bold text-xs uppercase tracking-wider transition-colors flex items-center justify-center space-x-1.5"
+            >
+              <BarChart3 className="w-4 h-4" />
+              <span>Ver Estadísticas Tácticas de Tiempo Muerto</span>
+            </button>
+
+            <button
+              type="button"
               onClick={cancelTimeoutCountdown}
               className="w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-sm uppercase tracking-wider shadow-lg shadow-emerald-600/30 transition-all flex items-center justify-center space-x-2"
             >
@@ -334,10 +437,52 @@ export const LiveConsole: React.FC = () => {
       )}
 
       {/* ------------------------------------------------------------- */}
+      {/* 1.5. BANNER DE ENTRETIEMPO CUMPLIDO (CHARLA TÉCNICA)          */}
+      {/* ------------------------------------------------------------- */}
+      {isHalftime && (
+        <div className="bg-gradient-to-r from-purple-950 via-slate-900 to-purple-950 p-4 rounded-3xl border-2 border-purple-500/80 shadow-2xl flex flex-wrap items-center justify-between gap-3 animate-in fade-in">
+          <div className="flex items-center space-x-3">
+            <span className="text-3xl">🏁</span>
+            <div>
+              <span className="text-xs font-black text-purple-300 block uppercase tracking-wider">
+                ¡Final del 1º Tiempo reglamentario ({match.periodDurationMinutes} min cumplidos)!
+              </span>
+              <p className="text-sm font-bold text-white">
+                Marcador al descanso: <strong className="text-blue-400">{match.homeScore}</strong> - <strong className="text-rose-400">{match.awayScore}</strong>
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <button
+              type="button"
+              onClick={() => setShowTacticalModal(true)}
+              className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-black text-xs uppercase tracking-wider shadow-md transition-all flex items-center space-x-1.5"
+            >
+              <BarChart3 className="w-4 h-4" />
+              <span>Ver Charla Técnica</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                startSecondPeriod();
+                setHasDismissedHalftimeModal(true);
+                setShowTacticalModal(false);
+              }}
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-emerald-600/30 transition-all flex items-center space-x-1.5"
+            >
+              <span>Comenzar 2º Tiempo</span>
+              <Play className="w-3.5 h-3.5 fill-white" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------- */}
       {/* 2. TABLERO DE CONTROL: MARCADOR + RELOJ + CATEGORÍA + TMO     */}
       {/* ------------------------------------------------------------- */}
       <div className="bg-slate-900 border border-slate-800 rounded-3xl p-4 sm:p-5 shadow-2xl space-y-4">
-        {/* Top line: Category selector & Period duration */}
+        {/* Top line: Category selector & Period duration & Tactical stats button */}
         <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-800">
           <div className="flex items-center gap-1.5">
             <span className="text-xs font-bold text-slate-400 mr-1">Categoría:</span>
@@ -363,6 +508,16 @@ export const LiveConsole: React.FC = () => {
           </div>
 
           <div className="flex items-center space-x-2">
+            <button
+              type="button"
+              onClick={() => setShowTacticalModal(true)}
+              className="text-xs font-black px-3 py-1 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-md shadow-blue-600/30 flex items-center space-x-1.5 transition-all"
+              title="Ver reporte táctico para la charla técnica y estadísticas del periodo"
+            >
+              <BarChart3 className="w-3.5 h-3.5" />
+              <span>📋 Charla Técnica</span>
+            </button>
+
             <button
               onClick={() => setMatchPeriod(match.currentPeriod === 1 ? 2 : 1)}
               className="text-xs font-black text-slate-200 px-3 py-1 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-colors"
@@ -940,6 +1095,44 @@ export const LiveConsole: React.FC = () => {
         {/* Live Event Log */}
         <EventLog />
       </div>
+
+      {/* ------------------------------------------------------------- */}
+      {/* 7. MODALES DE SEGUNDA INSTANCIA Y CHARLA TÉCNICA             */}
+      {/* ------------------------------------------------------------- */}
+
+      {/* Modal 2ª Instancia: Selección de Cuadrante del Arco al Anotar o Atajar */}
+      <GoalQuadrantModal
+        isOpen={pendingShot !== null}
+        shotType={pendingShot?.type || null}
+        actorName={pendingShot?.actorName || ''}
+        actorNumber={pendingShot?.actorNumber}
+        teamName={pendingShot?.type === 'rival_goal' ? match.awayTeam.name : match.homeTeam.name}
+        is7v6={pendingShot?.is7v6}
+        onSelectQuadrant={handleConfirmQuadrant}
+        onSkipCenter={handleSkipCenter}
+        onCancel={handleCancelShot}
+      />
+
+      {/* Modal Táctico: Resumen para la Charla Técnica (Entretiempo, TMO y Manual) */}
+      <TacticalBreakdownModal
+        isOpen={showTacticalModal}
+        onClose={() => {
+          setShowTacticalModal(false);
+          if (isHalftime) setHasDismissedHalftimeModal(true);
+        }}
+        match={match}
+        players={players}
+        isHalftime={isHalftime}
+        onStartSecondPeriod={() => {
+          startSecondPeriod();
+          setHasDismissedHalftimeModal(true);
+          setShowTacticalModal(false);
+        }}
+        onCancelTimeout={() => {
+          cancelTimeoutCountdown();
+          setShowTacticalModal(false);
+        }}
+      />
     </div>
   );
 };
