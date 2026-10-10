@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import type { Player, Team, Match, MatchEvent, ActiveExclusion, MatchCategory, TeamTimeout } from '../types/handball';
+import type { Player, Team, Match, MatchEvent, ActiveExclusion, MatchCategory, TeamTimeout, RivalPlayer } from '../types/handball';
 import { CATEGORY_DURATION_MAP } from '../types/handball';
 import { INITIAL_HOME_TEAM, INITIAL_PLAYERS, INITIAL_MATCH } from '../data/mockData';
 
@@ -38,6 +38,10 @@ interface HandballContextType {
   requestTimeout: (teamId: string) => boolean;
   cancelTimeoutCountdown: () => void;
   startSecondPeriod: () => void;
+  addRivalPlayer: (player: Omit<RivalPlayer, 'id'>) => void;
+  updateRivalPlayer: (player: RivalPlayer) => void;
+  deleteRivalPlayer: (playerId: string) => void;
+  setRivalPlayers: (players: RivalPlayer[]) => void;
 }
 
 const STORAGE_KEY_PLAYERS = 'hb_players_v1';
@@ -86,6 +90,7 @@ export const HandballProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       if (!parsed.onCourtPlayerIds || parsed.onCourtPlayerIds.length === 0) {
         parsed.onCourtPlayerIds = INITIAL_MATCH.onCourtPlayerIds || ['p-1', 'p-7', 'p-24', 'p-33', 'p-10', 'p-9', 'p-18'];
       }
+      parsed.rivalPlayers = parsed.rivalPlayers || INITIAL_MATCH.rivalPlayers || [];
       return parsed;
     } catch {
       return INITIAL_MATCH;
@@ -575,6 +580,38 @@ export const HandballProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }));
   };
 
+  const addRivalPlayer = (rivalData: Omit<RivalPlayer, 'id'>) => {
+    const newRival: RivalPlayer = {
+      ...rivalData,
+      id: `rp-${Date.now()}`,
+    };
+    setMatch((prev) => ({
+      ...prev,
+      rivalPlayers: [...(prev.rivalPlayers || []), newRival],
+    }));
+  };
+
+  const updateRivalPlayer = (updatedRival: RivalPlayer) => {
+    setMatch((prev) => ({
+      ...prev,
+      rivalPlayers: (prev.rivalPlayers || []).map((rp) => (rp.id === updatedRival.id ? updatedRival : rp)),
+    }));
+  };
+
+  const deleteRivalPlayer = (rivalId: string) => {
+    setMatch((prev) => ({
+      ...prev,
+      rivalPlayers: (prev.rivalPlayers || []).filter((rp) => rp.id !== rivalId),
+    }));
+  };
+
+  const setRivalPlayers = (rivals: RivalPlayer[]) => {
+    setMatch((prev) => ({
+      ...prev,
+      rivalPlayers: rivals,
+    }));
+  };
+
   const resetMatch = () => {
     setMatch({
       ...INITIAL_MATCH,
@@ -660,6 +697,10 @@ export const HandballProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         requestTimeout,
         cancelTimeoutCountdown,
         startSecondPeriod,
+        addRivalPlayer,
+        updateRivalPlayer,
+        deleteRivalPlayer,
+        setRivalPlayers,
       }}
     >
       {children}

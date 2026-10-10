@@ -14,6 +14,11 @@ export const CourtHeatmap: React.FC<CourtHeatmapProps> = ({ events, teamIdFilter
 
   // Group by zone
   const zoneStats: Record<CourtZone, { shots: number; goals: number }> = {
+    'interval_1_2_left': { shots: 0, goals: 0 },
+    'interval_2_3_left': { shots: 0, goals: 0 },
+    'interval_3_3_center': { shots: 0, goals: 0 },
+    'interval_2_3_right': { shots: 0, goals: 0 },
+    'interval_1_2_right': { shots: 0, goals: 0 },
     '6m_center': { shots: 0, goals: 0 },
     '6m_left_wing': { shots: 0, goals: 0 },
     '6m_right_wing': { shots: 0, goals: 0 },

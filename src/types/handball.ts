@@ -54,6 +54,11 @@ export interface Team {
 }
 
 export type CourtZone =
+  | 'interval_1_2_left'
+  | 'interval_2_3_left'
+  | 'interval_3_3_center'
+  | 'interval_2_3_right'
+  | 'interval_1_2_right'
   | '6m_center'
   | '6m_left_wing'
   | '6m_right_wing'
@@ -64,9 +69,14 @@ export type CourtZone =
   | 'fastbreak';
 
 export const COURT_ZONE_LABELS: Record<CourtZone, string> = {
-  '6m_center': '6m Centro / Pivote',
-  '6m_left_wing': '6m Extremo Izquierdo',
-  '6m_right_wing': '6m Extremo Derecho',
+  'interval_1_2_left': 'Entre 1-2 Izquierdo',
+  'interval_2_3_left': 'Entre 2-3 Izquierdo',
+  'interval_3_3_center': 'Entre 3-3 Central',
+  'interval_2_3_right': 'Entre 2-3 Derecho',
+  'interval_1_2_right': 'Entre 1-2 Derecho',
+  '6m_center': '6m Pivote / Centro',
+  '6m_left_wing': 'Extremo Izquierdo',
+  '6m_right_wing': 'Extremo Derecho',
   '7m': '7m (Penalti)',
   '9m_left': '9m Lateral Izquierdo',
   '9m_center': '9m Central',
@@ -155,6 +165,8 @@ export interface MatchEvent {
   playerId?: string;
   substitutePlayerId?: string;
   goalkeeperId?: string;
+  rivalPlayerNumber?: number;
+  rivalPlayerName?: string;
   type: EventType;
   shotOutcome?: ShotOutcome;
   courtZone?: CourtZone;
@@ -166,6 +178,18 @@ export interface MatchEvent {
   scoreHomeAfter: number;
   scoreAwayAfter: number;
   description: string;
+}
+
+export interface RivalPlayer {
+  id: string;
+  number: number;
+  name?: string;
+  position: Position;
+  handedness?: Handedness;
+  notes?: string;
+  goalsCount?: number;
+  shotsCount?: number;
+  turnoversCount?: number;
 }
 
 export interface TeamTimeout {
@@ -207,6 +231,7 @@ export interface Match {
   isRunning: boolean;
   activeExclusions: ActiveExclusion[];
   onCourtPlayerIds: string[];
+  rivalPlayers?: RivalPlayer[];
   events: MatchEvent[];
   isFinished: boolean;
 }

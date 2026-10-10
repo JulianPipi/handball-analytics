@@ -77,6 +77,41 @@ export const MonteCarloSimulatorView: React.FC = () => {
     handleRunSimulation();
   }, []);
 
+  const handleSyncWithMatch = () => {
+    const homeShots = match.events.filter((e) => e.type === 'shot' && e.teamId === match.homeTeam.id);
+    const homeGoals = homeShots.filter((e) => e.shotOutcome === 'goal').length;
+    const computedHomeEff = homeShots.length > 0 ? Math.round((homeGoals / homeShots.length) * 100) : 62;
+
+    const homeTurnovers = match.events.filter((e) => e.type === 'turnover' && e.teamId === match.homeTeam.id).length;
+    const homePoss = homeShots.length + homeTurnovers;
+    const computedHomeTo = homePoss > 0 ? Math.round((homeTurnovers / homePoss) * 100) : 14;
+
+    const awayShots = match.events.filter((e) => e.type === 'shot' && e.teamId === match.awayTeam.id);
+    const awayGoals = awayShots.filter((e) => e.shotOutcome === 'goal').length;
+    const localSaves = awayShots.filter((e) => e.shotOutcome === 'save').length;
+    const computedHomeSave = (awayGoals + localSaves) > 0 ? Math.round((localSaves / (awayGoals + localSaves)) * 100) : 32;
+
+    setHomeShotEff(Math.min(85, Math.max(40, computedHomeEff)));
+    setHomeTurnoverPct(Math.min(30, Math.max(5, computedHomeTo)));
+    setHomeGkSavePct(Math.min(50, Math.max(15, computedHomeSave)));
+
+    setTimeout(handleRunSimulation, 50);
+  };
+
+  const applyPreset = (preset: 'balanced' | 'fast' | 'defensive') => {
+    if (preset === 'balanced') {
+      setHomePace(54); setHomeShotEff(62); setHomeTurnoverPct(12); setHomeGkSavePct(33);
+      setAwayPace(54); setAwayShotEff(60); setAwayTurnoverPct(14); setAwayGkSavePct(30);
+    } else if (preset === 'fast') {
+      setHomePace(62); setHomeShotEff(66); setHomeTurnoverPct(15);
+      setAwayPace(62); setAwayShotEff(62); setAwayTurnoverPct(17);
+    } else if (preset === 'defensive') {
+      setHomePace(46); setHomeGkSavePct(40); setAwayGkSavePct(36);
+      setHomeTurnoverPct(10); setAwayTurnoverPct(12);
+    }
+    setTimeout(handleRunSimulation, 50);
+  };
+
   const handleRunSimulation = () => {
     setIsSimulating(true);
     setTimeout(() => {
@@ -149,6 +184,43 @@ export const MonteCarloSimulatorView: React.FC = () => {
               <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
                 <Sliders className="w-3.5 h-3.5 text-purple-400" /> Parámetros de Simulación:
               </h3>
+            </div>
+
+                        {/* 1-Click Fast Presets */}
+            <div className="space-y-1.5 bg-slate-950 p-2.5 rounded-2xl border border-purple-500/30">
+              <span className="text-[10px] font-black uppercase tracking-wider text-purple-300 block">
+                ⚡ Modo Rápido (1 Clic):
+              </span>
+              <div className="grid grid-cols-2 gap-1.5">
+                <button
+                  type="button"
+                  onClick={handleSyncWithMatch}
+                  className="py-1.5 px-2 rounded-xl text-[11px] font-black bg-purple-600 hover:bg-purple-500 text-white shadow transition-all truncate text-center"
+                >
+                  📊 Datos del Partido
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyPreset('balanced')}
+                  className="py-1.5 px-2 rounded-xl text-[11px] font-bold bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 transition-all text-center"
+                >
+                  ⚖️ Equilibrado
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyPreset('fast')}
+                  className="py-1.5 px-2 rounded-xl text-[11px] font-bold bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 transition-all text-center"
+                >
+                  🏃 Ritmo Rápido
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyPreset('defensive')}
+                  className="py-1.5 px-2 rounded-xl text-[11px] font-bold bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 transition-all text-center"
+                >
+                  🛡️ Defensivo
+                </button>
+              </div>
             </div>
 
             {/* Iterations selector */}

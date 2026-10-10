@@ -409,6 +409,15 @@ export const INITIAL_MATCH: Match = {
   isRunning: false,
   activeExclusions: [],
   onCourtPlayerIds: ['p-1', 'p-7', 'p-24', 'p-33', 'p-10', 'p-9', 'p-18'],
+  rivalPlayers: [
+    { id: 'rp-1', number: 1, name: 'Portero Rival', position: 'GK', handedness: 'right', notes: 'Parador de media altura' },
+    { id: 'rp-7', number: 7, name: 'Extremo Izq.', position: 'LW', handedness: 'right', notes: 'Rápido al contraataque' },
+    { id: 'rp-10', number: 10, name: 'Lateral Izq.', position: 'LB', handedness: 'right', notes: 'Lanzador potente de 9m' },
+    { id: 'rp-24', number: 24, name: 'Central', position: 'CB', handedness: 'right', notes: 'Organizador, busca el 2-3' },
+    { id: 'rp-9', number: 9, name: 'Lateral Der.', position: 'RB', handedness: 'left', notes: 'Zurdo penetrador entre 1-2' },
+    { id: 'rp-18', number: 18, name: 'Extremo Der.', position: 'RW', handedness: 'left', notes: 'Finalizador en ángulo cerrado' },
+    { id: 'rp-33', number: 33, name: 'Pivote', position: 'PV', handedness: 'right', notes: 'Ganador de posición en 6m' },
+  ],
   events: [],
   isFinished: false,
 };

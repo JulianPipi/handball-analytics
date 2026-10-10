@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useHandball } from '../../context/HandballContext';
-import type { MatchCategory, Player, GoalZone } from '../../types/handball';
-import { CATEGORY_DURATION_MAP, POSITION_LABELS, GOAL_ZONE_LABELS } from '../../types/handball';
+import type { MatchCategory, Player, GoalZone, CourtZone } from '../../types/handball';
+import { CATEGORY_DURATION_MAP, POSITION_LABELS, GOAL_ZONE_LABELS, COURT_ZONE_LABELS } from '../../types/handball';
 import { ExclusionTracker } from './ExclusionTracker';
 import { EventLog } from './EventLog';
 import { LineupRotations } from './LineupRotations';
 import { GoalQuadrantModal } from './GoalQuadrantModal';
 import type { PendingShotType } from './GoalQuadrantModal';
 import { TacticalBreakdownModal } from './TacticalBreakdownModal';
+import { TurnoverModal } from './TurnoverModal';
+import { RivalScoutingModal } from './RivalScoutingModal';
+import { calculatePlayerPerformance } from '../../utils/playerPerformance';
 import {
   Play,
   Pause,
@@ -19,6 +22,7 @@ import {
   ChevronUp,
   Timer,
   BarChart3,
+  Shield,
 } from 'lucide-react';
 
 interface PendingShotAction {
@@ -48,6 +52,9 @@ export const LiveConsole: React.FC = () => {
     cancelTimeoutCountdown,
     startSecondPeriod,
     addExclusion,
+    addRivalPlayer,
+    updateRivalPlayer,
+    deleteRivalPlayer,
   } = useHandball();
 
   // Selected player ID for quick event attributing (null = colectivo/equipo)
@@ -60,6 +67,9 @@ export const LiveConsole: React.FC = () => {
   // Pending shot action for 2nd instance Goal Quadrant modal
   const [pendingShot, setPendingShot] = useState<PendingShotAction | null>(null);
 
+  // Turnover and Rival Scouting modals
+  const [showTurnoverModal, setShowTurnoverModal] = useState<boolean>(false);
+  const [showRivalScoutingModal, setShowRivalScoutingModal] = useState<boolean>(false);
   // Tactical breakdown modal (Charla Técnica / TMO / Halftime)
   const [showTacticalModal, setShowTacticalModal] = useState<boolean>(false);
   const [hasDismissedHalftimeModal, setHasDismissedHalftimeModal] = useState<boolean>(false);
@@ -153,10 +163,11 @@ export const LiveConsole: React.FC = () => {
     });
   };
 
-  // CONFIRMACIÓN DE CUADRANTE EN SEGUNDA INSTANCIA
-  const handleConfirmQuadrant = (zone: GoalZone) => {
+  // CONFIRMACIÓN DE CUADRANTE EN SEGUNDA INSTANCIA (INCLUYE ZONA DE TIRO / INTERVALO)
+  const handleConfirmQuadrant = (zone: GoalZone, courtZone: CourtZone = 'interval_3_3_center', rivalNumber?: number) => {
     if (!pendingShot) return;
     const zoneLabel = GOAL_ZONE_LABELS[zone];
+    const courtLabel = COURT_ZONE_LABELS[courtZone];
 
     if (pendingShot.type === 'home_goal') {
       const actorLabel = pendingShot.actorNumber ? `#${pendingShot.actorNumber} ${pendingShot.actorName}` : pendingShot.actorName;
@@ -168,10 +179,10 @@ export const LiveConsole: React.FC = () => {
         playerId: pendingShot.playerId,
         type: 'shot',
         shotOutcome: 'goal',
-        courtZone: '6m_center',
+        courtZone,
         goalZone: zone,
         is7v6: pendingShot.is7v6,
-        description: `⚽ GOL de ${actorLabel} [${zoneLabel}]${pendingShot.is7v6 ? ' (7v6)' : ''}`,
+        description: `⚽ GOL de ${actorLabel} [${courtLabel} ➔ ${zoneLabel}]${pendingShot.is7v6 ? ' (7v6)' : ''}`,
       });
       setPossession('away');
     } else if (pendingShot.type === 'rival_saved') {
@@ -184,8 +195,9 @@ export const LiveConsole: React.FC = () => {
         playerId: pendingShot.playerId,
         type: 'shot',
         shotOutcome: 'save',
+        courtZone,
         goalZone: zone,
-        description: `🧤 Parada del arquero rival a tiro de ${actorLabel} [${zoneLabel}]`,
+        description: `🧤 Parada del arquero rival a tiro de ${actorLabel} [${courtLabel} ➔ ${zoneLabel}]`,
       });
       setPossession('away');
     } else if (pendingShot.type === 'home_saved') {
@@ -198,21 +210,25 @@ export const LiveConsole: React.FC = () => {
         goalkeeperId: localGoalkeeper?.id,
         type: 'shot',
         shotOutcome: 'save',
+        courtZone,
         goalZone: zone,
-        description: `🧤 ¡PARADA salvadora de ${gkLabel}! [${zoneLabel}]`,
+        description: `🧤 ¡PARADA salvadora de ${gkLabel}! [${courtLabel} ➔ ${zoneLabel}]`,
       });
       setPossession('home');
     } else if (pendingShot.type === 'rival_goal') {
+      const rivalLabel = rivalNumber ? `#${rivalNumber} ` : '';
       recordEvent({
         matchId: match.id,
         period: match.currentPeriod,
         matchTimeSeconds: match.matchTimeSeconds,
         teamId: match.awayTeam.id,
         goalkeeperId: localGoalkeeper?.id,
+        rivalPlayerNumber: rivalNumber,
         type: 'shot',
         shotOutcome: 'goal',
+        courtZone,
         goalZone: zone,
-        description: `❌ Gol del rival (${match.awayTeam.name}) [${zoneLabel}]`,
+        description: `❌ Gol del rival ${rivalLabel}(${match.awayTeam.name}) [${courtLabel} ➔ ${zoneLabel}]`,
       });
       setPossession('home');
     }
@@ -221,8 +237,32 @@ export const LiveConsole: React.FC = () => {
     setSelectedPlayerId(null);
   };
 
-  const handleSkipCenter = () => {
-    handleConfirmQuadrant('mid_center');
+  const handleSkipCenter = (courtZone: CourtZone = 'interval_3_3_center', rivalNumber?: number) => {
+    handleConfirmQuadrant('mid_center', courtZone, rivalNumber);
+  };
+
+  // ATTACK: PÉRDIDA DE BALÓN CON ACLARACIÓN DE JUGADOR E INFRACCIÓN
+  const handleAttackTurnover = () => {
+    setShowTurnoverModal(true);
+  };
+
+  const handleConfirmTurnover = (playerId: string | undefined, turnoverType: any, courtZone: CourtZone = 'interval_3_3_center') => {
+    const playerObj = players.find((p) => p.id === playerId);
+    const actorName = playerObj ? `#${playerObj.number} ${playerObj.name}` : match.homeTeam.name;
+    recordEvent({
+      matchId: match.id,
+      period: match.currentPeriod,
+      matchTimeSeconds: match.matchTimeSeconds,
+      teamId: match.homeTeam.id,
+      playerId,
+      type: 'turnover',
+      turnoverType,
+      courtZone,
+      description: `⚠️ Pérdida de balón (${turnoverType}) de ${actorName} [${COURT_ZONE_LABELS[courtZone]}]`,
+    });
+    setPossession('away');
+    setSelectedPlayerId(null);
+    setShowTurnoverModal(false);
   };
 
   const handleCancelShot = () => {
@@ -246,22 +286,7 @@ export const LiveConsole: React.FC = () => {
     setSelectedPlayerId(null);
   };
 
-  // ATTACK: PÉRDIDA DE BALÓN
-  const handleAttackTurnover = () => {
-    const actorName = selectedPlayer ? `#${selectedPlayer.number} ${selectedPlayer.name}` : match.homeTeam.name;
-    recordEvent({
-      matchId: match.id,
-      period: match.currentPeriod,
-      matchTimeSeconds: match.matchTimeSeconds,
-      teamId: match.homeTeam.id,
-      playerId: selectedPlayerId || undefined,
-      type: 'turnover',
-      turnoverType: 'handling_error',
-      description: `⚠️ Pérdida de balón de ${actorName}`,
-    });
-    setPossession('away');
-    setSelectedPlayerId(null);
-  };
+// handleAttackTurnover already defined above
 
   // ATTACK: 7 METROS FORZADO (Mantiene posesión)
   const handleForced7m = () => {
@@ -414,6 +439,16 @@ export const LiveConsole: React.FC = () => {
                 )}
               </p>
             </div>
+
+            <button
+              type="button"
+              onClick={() => setShowRivalScoutingModal(true)}
+              className="text-xs font-black px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-rose-300 border border-rose-600/40 flex items-center space-x-1.5 transition-all"
+              title="Ver y editar dorsales y posiciones del equipo rival"
+            >
+              <Shield className="w-3.5 h-3.5 text-rose-400" />
+              <span>👥 Scouting Rival ({match.rivalPlayers?.length || 0})</span>
+            </button>
 
             <button
               type="button"
@@ -867,6 +902,7 @@ export const LiveConsole: React.FC = () => {
             {onCourtPlayers.map((p) => {
               const isSelected = selectedPlayerId === p.id;
               const posMeta = POSITION_LABELS[p.position];
+              const perf = calculatePlayerPerformance(p, match.events);
 
               return (
                 <button
@@ -876,8 +912,15 @@ export const LiveConsole: React.FC = () => {
                   className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all flex items-center space-x-1.5 ${
                     isSelected
                       ? 'bg-blue-600 text-white border-white shadow-lg shadow-blue-600/30 font-black scale-105'
+                      : perf.rating === 'hot'
+                      ? 'bg-slate-950 text-white border-emerald-500 shadow-md shadow-emerald-500/25 hover:bg-slate-900 font-black'
+                      : perf.rating === 'warning'
+                      ? 'bg-slate-950 text-slate-200 border-amber-500/80 hover:bg-slate-900'
+                      : perf.rating === 'cold'
+                      ? 'bg-slate-950 text-slate-200 border-rose-500 shadow-md shadow-rose-500/25 hover:bg-slate-900'
                       : 'bg-slate-950 text-slate-300 border-slate-800 hover:text-white hover:bg-slate-800'
                   }`}
+                  title={`${p.name} • ${perf.label}: ${perf.summary}`}
                 >
                   <span className="w-5 h-5 rounded-md bg-slate-900 border border-slate-700 flex items-center justify-center font-mono font-black text-[10px] text-blue-300">
                     #{p.number}
@@ -886,6 +929,7 @@ export const LiveConsole: React.FC = () => {
                   <span className="text-[9px] font-bold px-1 rounded bg-slate-900/60 text-slate-400">
                     {posMeta.short}
                   </span>
+                  <span className="text-[10px] font-mono">{perf.shortBadge}</span>
                 </button>
               );
             })}
@@ -1100,7 +1144,7 @@ export const LiveConsole: React.FC = () => {
       {/* 7. MODALES DE SEGUNDA INSTANCIA Y CHARLA TÉCNICA             */}
       {/* ------------------------------------------------------------- */}
 
-      {/* Modal 2ª Instancia: Selección de Cuadrante del Arco al Anotar o Atajar */}
+      {/* Modal 2ª Instancia: Selección de Cuadrante del Arco + Intervalo de Tiro */}
       <GoalQuadrantModal
         isOpen={pendingShot !== null}
         shotType={pendingShot?.type || null}
@@ -1108,9 +1152,30 @@ export const LiveConsole: React.FC = () => {
         actorNumber={pendingShot?.actorNumber}
         teamName={pendingShot?.type === 'rival_goal' ? match.awayTeam.name : match.homeTeam.name}
         is7v6={pendingShot?.is7v6}
+        rivalPlayers={match.rivalPlayers || []}
         onSelectQuadrant={handleConfirmQuadrant}
         onSkipCenter={handleSkipCenter}
         onCancel={handleCancelShot}
+      />
+
+      {/* Modal de Registro Detallado de Pérdidas de Balón */}
+      <TurnoverModal
+        isOpen={showTurnoverModal}
+        onCourtPlayers={onCourtPlayers}
+        selectedPlayerId={selectedPlayerId}
+        onConfirm={handleConfirmTurnover}
+        onCancel={() => setShowTurnoverModal(false)}
+      />
+
+      {/* Modal de Scouting de Plantilla y Posiciones del Rival */}
+      <RivalScoutingModal
+        isOpen={showRivalScoutingModal}
+        onClose={() => setShowRivalScoutingModal(false)}
+        rivalTeamName={match.awayTeam.name}
+        rivalPlayers={match.rivalPlayers || []}
+        onAddRivalPlayer={addRivalPlayer}
+        onUpdateRivalPlayer={updateRivalPlayer}
+        onDeleteRivalPlayer={deleteRivalPlayer}
       />
 
       {/* Modal Táctico: Resumen para la Charla Técnica (Entretiempo, TMO y Manual) */}

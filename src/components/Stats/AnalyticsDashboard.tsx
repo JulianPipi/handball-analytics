@@ -4,6 +4,7 @@ import { CourtHeatmap } from './CourtHeatmap';
 import { GoalQuadrantMatrix } from './GoalQuadrantMatrix';
 import { PlayerStatsTable } from './PlayerStatsTable';
 import { ComparisonRow } from './MatchComparisonBar';
+import { PlayerPerformanceHeatmap } from './PlayerPerformanceHeatmap';
 import {
   BarChart3,
   Printer,
@@ -17,6 +18,7 @@ export const AnalyticsDashboard: React.FC = () => {
   const [scope, setScope] = useState<'live_match' | 'season_roster'>('live_match');
   // Team filter for court/goal views
   const [teamFilter, setTeamFilter] = useState<'all' | 'home' | 'away'>('all');
+  const [viewMode, setViewMode] = useState<'team' | 'player'>('team');
 
   // Compute live match statistics from recorded events
   const homeEvents = match.events.filter((e) => e.teamId === match.homeTeam.id);
@@ -120,6 +122,40 @@ export const AnalyticsDashboard: React.FC = () => {
         </div>
       </div>
 
+      {/* View Mode Toggle: Equipo vs Jugador Individual */}
+      <div className="flex bg-slate-900 border border-slate-800 p-1.5 rounded-2xl max-w-xl shadow-lg">
+        <button
+          type="button"
+          onClick={() => setViewMode('team')}
+          className={`flex-1 py-2 px-4 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 ${
+            viewMode === 'team'
+              ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
+              : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <span>📊 Resumen Colectivo & Comparativa</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setViewMode('player')}
+          className={`flex-1 py-2 px-4 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 ${
+            viewMode === 'player'
+              ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
+              : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <span>🔥 Mapa de Rendimiento por Jugador</span>
+        </button>
+      </div>
+
+      {viewMode === 'player' ? (
+        <PlayerPerformanceHeatmap
+          players={players}
+          events={match.events}
+          onCourtPlayerIds={match.onCourtPlayerIds || []}
+        />
+      ) : (
+        <>
       {/* 2. Top Summary KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl">
@@ -305,6 +341,8 @@ export const AnalyticsDashboard: React.FC = () => {
 
       {/* 6. Individual Player Box Score Table */}
       <PlayerStatsTable players={players} />
+        </>
+      )}
     </div>
   );
 };
